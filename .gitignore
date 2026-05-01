@@ -1,0 +1,22 @@
+# Data caches — pulled from Statcast, regenerable
+data/raw/
+data/interim/
+data/processed/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Reports — keep figures, ignore drafts
+reports/figures/*.png
+!reports/figures/.gitkeep
+
