@@ -1,0 +1,11 @@
+mlbam_id,last,first,full_name,group,mlb_debut,npb_years,notes
+808967,Yamamoto,Yoshinobu,Yoshinobu Yamamoto,NPB,2024,7,Dodgers ace; primary splitter weapon
+660271,Ohtani,Shohei,Shohei Ohtani,NPB,2018,5,Pitching seasons 2018-2023 only; no pitching 2024+
+684007,Imanaga,Shota,Shota Imanaga,NPB,2024,8,Cubs; splitter-heavy arsenal
+808963,Sasaki,Roki,Roki Sasaki,NPB,2025,4,Dodgers; low-spin splitter; small MLB sample
+673540,Senga,Kodai,Kodai Senga,NPB,2023,11,Mets; ghost fork variant
+592332,Gausman,Kevin,Kevin Gausman,Domestic,2013,0,Gold standard domestic splitter; most whiffs in Statcast era
+543135,Eovaldi,Nathan,Nathan Eovaldi,Domestic,2011,0,Horizontal splitter profile; contrast to NPB vertical drop
+694973,Skenes,Paul,Paul Skenes,Domestic,2024,0,Splinker (94 mph); reclassified FS in 2025; velocity outlier
+592836,Walker,Taijuan,Taijuan Walker,Domestic,2012,0,Cautionary case; worst splitter by run value 2024 (-16)
+702056,Yesavage,Trey,Trey Yesavage,Domestic,2025,0,Over-the-top delivery; 57% whiff in 2025; small sample

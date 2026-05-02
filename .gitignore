@@ -1,7 +1,18 @@
 # Data caches — pulled from Statcast, regenerable
-data/raw/
-data/interim/
-data/processed/
+data/raw/*
+data/interim/*
+data/processed/*
+!data/raw/.gitkeep
+!data/interim/.gitkeep
+!data/processed/.gitkeep
+# ...except small derived outputs that are part of the project record:
+!data/processed/pitcher_roster.csv
+!data/processed/pitcher_debuts.csv
+!data/processed/pitcher_season_residuals.parquet
+!data/processed/mixed_effects_coeffs.csv
+!data/processed/bootstrap_npb_coefficient.csv
+!data/processed/stuff_baseline.json
+# Keep the giant per-pitch predictions parquet ignored (~54MB, regenerable)
 
 # Python
 __pycache__/

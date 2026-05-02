@@ -1,0 +1,29 @@
+            Mixed Linear Model Regression Results
+==============================================================
+Model:            MixedLM Dependent Variable: model_resistance
+No. Observations: 239     Method:             REML            
+No. Groups:       111     Scale:              2.2059          
+Min. group size:  1       Log-Likelihood:     -454.4158       
+Max. group size:  5       Converged:          Yes             
+Mean group size:  2.2                                         
+--------------------------------------------------------------
+                   Coef.  Std.Err.   z    P>|z|  [0.025 0.975]
+--------------------------------------------------------------
+Intercept          -4.612    5.017 -0.919 0.358 -14.444  5.221
+npb_years           0.101    0.102  0.986 0.324  -0.100  0.301
+mlb_seasons_in     -0.045    0.033 -1.364 0.172  -0.110  0.020
+fastball_velo_mean  0.023    0.051  0.453 0.650  -0.078  0.124
+usage_share         2.797    1.380  2.027 0.043   0.092  5.503
+is_novelty_year    -0.657    0.391 -1.680 0.093  -1.424  0.110
+Group Var           0.402    0.168                            
+==============================================================
+
+
+=== Sensitivity check on npb_years coefficient ===
+point estimate (MixedLM): 0.1009
+asymptotic 95% CI:        [-0.0997, 0.3014]
+cluster-bootstrap 95% CI: [-0.0702, 0.2118] (n=1964 convergent of 2000)
+
+The bootstrap CI is the honest interval — the asymptotic CI assumes
+more variation in `npb_years` than the data actually has, since the
+predictor's nonzero values come from ~5 NPB pitchers.
