@@ -1,3 +1,5 @@
+=== MixedLM regression on FS pitcher-seasons ===
+
             Mixed Linear Model Regression Results
 ==============================================================
 Model:            MixedLM Dependent Variable: model_resistance

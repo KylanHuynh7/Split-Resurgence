@@ -34,20 +34,37 @@ PROCESSED_DIR = REPO_ROOT / "data" / "processed"
 REPORTS_DIR = REPO_ROOT / "reports"
 
 RESIDUALS_PATH = PROCESSED_DIR / "pitcher_season_residuals.parquet"
-COEFFS_PATH = PROCESSED_DIR / "mixed_effects_coeffs.csv"
-BOOTSTRAP_PATH = PROCESSED_DIR / "bootstrap_npb_coefficient.csv"
-SUMMARY_PATH = REPORTS_DIR / "mixed_effects_summary.txt"
-
-FORMULA = (
-    "model_resistance ~ npb_years + mlb_seasons_in + fastball_velo_mean "
-    "+ usage_share + is_novelty_year"
-)
 
 
-def load_fs_table() -> pd.DataFrame:
-    """FS rows only, drop rows missing any covariate the formula needs."""
+def coeffs_path(pitch_type: str) -> Path:
+    return PROCESSED_DIR / f"mixed_effects_coeffs_{pitch_type}.csv"
+
+
+def bootstrap_path(pitch_type: str) -> Path:
+    return PROCESSED_DIR / f"bootstrap_npb_coefficient_{pitch_type}.csv"
+
+
+def summary_path(pitch_type: str) -> Path:
+    return REPORTS_DIR / f"mixed_effects_summary_{pitch_type}.txt"
+
+
+PREDICTORS = [
+    "npb_years", "mlb_seasons_in", "fastball_velo_mean",
+    "usage_share", "is_novelty_year",
+]
+
+
+def build_formula(df: pd.DataFrame) -> tuple[str, list[str]]:
+    """Drop predictors with no variation (e.g. npb_years on CH where none of
+    the focal NPB pitchers crossed the 100-pitch threshold)."""
+    used = [p for p in PREDICTORS if df[p].nunique() > 1]
+    return "model_resistance ~ " + " + ".join(used), used
+
+
+def load_pitch_table(pitch_type: str) -> pd.DataFrame:
+    """Rows for `pitch_type` only, drop rows missing any covariate the formula needs."""
     df = pd.read_parquet(RESIDUALS_PATH)
-    df = df[df["pitch_type"] == "FS"].copy()
+    df = df[df["pitch_type"] == pitch_type].copy()
     needed = [
         "model_resistance", "npb_years", "mlb_seasons_in",
         "fastball_velo_mean", "is_novelty_year",
@@ -84,7 +101,7 @@ def load_fs_table() -> pd.DataFrame:
     return df
 
 
-def fit_mixedlm(df: pd.DataFrame):
+def fit_mixedlm(df: pd.DataFrame, formula: str):
     """Fit with optimizer fallback chain.
 
     L-BFGS-B can hit a singular matrix in the score computation when many
@@ -92,7 +109,7 @@ def fit_mixedlm(df: pd.DataFrame):
     variance is then near-degenerate). Chain through more robust optimizers
     that don't rely on analytic gradients.
     """
-    model = smf.mixedlm(FORMULA, df, groups=df["pitcher"])
+    model = smf.mixedlm(formula, df, groups=df["pitcher"])
     last_err: Exception | None = None
     for method in ("lbfgs", "bfgs", "cg", "powell"):
         try:
@@ -106,7 +123,7 @@ def fit_mixedlm(df: pd.DataFrame):
 
 
 def cluster_bootstrap_npb(
-    df: pd.DataFrame, n_resamples: int = 2000, seed: int = 0
+    df: pd.DataFrame, formula: str, n_resamples: int = 2000, seed: int = 0
 ) -> np.ndarray:
     """Resample pitchers (with replacement), refit MixedLM, collect npb coeff."""
     rng = np.random.default_rng(seed)
@@ -128,7 +145,7 @@ def cluster_bootstrap_npb(
         # is unidentified; record NaN and move on.
         if (boot["npb_years"] > 0).sum() == 0:
             continue
-        model = smf.mixedlm(FORMULA, boot, groups=boot["pitcher"])
+        model = smf.mixedlm(formula, boot, groups=boot["pitcher"])
         for method in ("lbfgs", "bfgs", "cg", "powell"):
             try:
                 with warnings.catch_warnings():
@@ -144,17 +161,22 @@ def cluster_bootstrap_npb(
     return estimates
 
 
-def main(n_bootstrap: int = 2000) -> None:
-    print("[mixed_effects] loading FS pitcher-season residuals...")
-    df = load_fs_table()
+def main(pitch_type: str = "FS", n_bootstrap: int = 2000) -> None:
+    print(f"[mixed_effects] loading {pitch_type} pitcher-season residuals...")
+    df = load_pitch_table(pitch_type)
     print(
         f"[mixed_effects]   {len(df)} rows, "
         f"{df['pitcher'].nunique()} pitchers, "
         f"{(df['npb_years'] > 0).sum()} NPB-flagged rows"
     )
 
+    formula, used_predictors = build_formula(df)
+    dropped = [p for p in PREDICTORS if p not in used_predictors]
+    if dropped:
+        print(f"[mixed_effects] dropping zero-variation predictors: {dropped}")
+    print(f"[mixed_effects] formula: {formula}")
     print("[mixed_effects] fitting primary MixedLM...")
-    fit = fit_mixedlm(df)
+    fit = fit_mixedlm(df, formula)
     print(fit.summary())
 
     coeffs = pd.DataFrame(
@@ -168,45 +190,67 @@ def main(n_bootstrap: int = 2000) -> None:
     coeffs["ci_low"] = coeffs["estimate"] - 1.96 * coeffs["se"]
     coeffs["ci_high"] = coeffs["estimate"] + 1.96 * coeffs["se"]
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
-    coeffs.to_csv(COEFFS_PATH, index=False)
-    print(f"[mixed_effects] wrote coeffs to {COEFFS_PATH}")
+    coeffs_p = coeffs_path(pitch_type)
+    coeffs.to_csv(coeffs_p, index=False)
+    print(f"[mixed_effects] wrote coeffs to {coeffs_p}")
 
-    print(
-        f"[mixed_effects] cluster bootstrap on npb_years ({n_bootstrap} resamples)..."
-    )
-    boot = cluster_bootstrap_npb(df, n_resamples=n_bootstrap)
-    boot_clean = boot[~np.isnan(boot)]
-    if len(boot_clean) == 0:
-        print("[mixed_effects] WARNING: no bootstrap fits converged.")
-        boot_lo = boot_hi = float("nan")
-    else:
-        boot_lo, boot_hi = np.percentile(boot_clean, [2.5, 97.5])
+    if "npb_years" in used_predictors:
         print(
-            f"[mixed_effects]   bootstrap 95% CI: [{boot_lo:.3f}, {boot_hi:.3f}] "
-            f"(from {len(boot_clean)}/{n_bootstrap} convergent fits)"
+            f"[mixed_effects] cluster bootstrap on npb_years ({n_bootstrap} resamples)..."
         )
-    pd.DataFrame({"estimate": boot}).to_csv(BOOTSTRAP_PATH, index=False)
+        boot = cluster_bootstrap_npb(df, formula, n_resamples=n_bootstrap)
+        boot_clean = boot[~np.isnan(boot)]
+        if len(boot_clean) == 0:
+            print("[mixed_effects] WARNING: no bootstrap fits converged.")
+            boot_lo = boot_hi = float("nan")
+        else:
+            boot_lo, boot_hi = np.percentile(boot_clean, [2.5, 97.5])
+            print(
+                f"[mixed_effects]   bootstrap 95% CI: [{boot_lo:.3f}, {boot_hi:.3f}] "
+                f"(from {len(boot_clean)}/{n_bootstrap} convergent fits)"
+            )
+        pd.DataFrame({"estimate": boot}).to_csv(bootstrap_path(pitch_type), index=False)
+    else:
+        print(
+            "[mixed_effects] skipping npb_years bootstrap — predictor was "
+            "dropped (no variation in this dataset)"
+        )
+        boot_clean = np.array([])
+        boot_lo = boot_hi = float("nan")
 
-    npb_row = coeffs[coeffs["term"] == "npb_years"].iloc[0]
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-    with open(SUMMARY_PATH, "w") as f:
+    summary_p = summary_path(pitch_type)
+    with open(summary_p, "w") as f:
+        f.write(f"=== MixedLM regression on {pitch_type} pitcher-seasons ===\n\n")
+        if dropped:
+            f.write(f"NOTE: predictors dropped (no variation): {dropped}\n\n")
         f.write(str(fit.summary()))
-        f.write("\n\n=== Sensitivity check on npb_years coefficient ===\n")
-        f.write(f"point estimate (MixedLM): {npb_row['estimate']:.4f}\n")
-        f.write(
-            f"asymptotic 95% CI:        "
-            f"[{npb_row['ci_low']:.4f}, {npb_row['ci_high']:.4f}]\n"
-        )
-        f.write(
-            f"cluster-bootstrap 95% CI: [{boot_lo:.4f}, {boot_hi:.4f}] "
-            f"(n={len(boot_clean)} convergent of {n_bootstrap})\n"
-        )
-        f.write(
-            "\nThe bootstrap CI is the honest interval — the asymptotic CI assumes\n"
-            "more variation in `npb_years` than the data actually has, since the\n"
-            "predictor's nonzero values come from ~5 NPB pitchers.\n"
-        )
-    print(f"[mixed_effects] summary written to {SUMMARY_PATH}")
+        if "npb_years" in used_predictors:
+            npb_row = coeffs[coeffs["term"] == "npb_years"].iloc[0]
+            f.write("\n\n=== Sensitivity check on npb_years coefficient ===\n")
+            f.write(f"point estimate (MixedLM): {npb_row['estimate']:.4f}\n")
+            f.write(
+                f"asymptotic 95% CI:        "
+                f"[{npb_row['ci_low']:.4f}, {npb_row['ci_high']:.4f}]\n"
+            )
+            f.write(
+                f"cluster-bootstrap 95% CI: [{boot_lo:.4f}, {boot_hi:.4f}] "
+                f"(n={len(boot_clean)} convergent of {n_bootstrap})\n"
+            )
+            f.write(
+                "\nThe bootstrap CI is the honest interval — the asymptotic CI assumes\n"
+                "more variation in `npb_years` than the data actually has, since the\n"
+                "predictor's nonzero values come from ~5 NPB pitchers.\n"
+            )
+        else:
+            f.write(
+                "\n\n=== npb_years was dropped from this model ===\n"
+                "None of the focal NPB-developed pitchers (Yamamoto, Ohtani,\n"
+                f"Imanaga, Sasaki, Senga) reached the 100-{pitch_type} threshold\n"
+                "in any season. The NPB-development hypothesis cannot be tested\n"
+                "directly on this pitch type using the focal roster.\n"
+            )
+    print(f"[mixed_effects] summary written to {summary_p}")
 
 
 if __name__ == "__main__":
@@ -214,10 +258,17 @@ if __name__ == "__main__":
 
     p = argparse.ArgumentParser()
     p.add_argument(
+        "--pitch-type",
+        type=str,
+        default="FS",
+        choices=["FS", "CH"],
+        help="Pitch type to fit on (default FS).",
+    )
+    p.add_argument(
         "--bootstrap",
         type=int,
         default=2000,
         help="Number of cluster-bootstrap resamples (default 2000; use ~50 for smoke).",
     )
     args = p.parse_args()
-    main(n_bootstrap=args.bootstrap)
+    main(pitch_type=args.pitch_type, n_bootstrap=args.bootstrap)

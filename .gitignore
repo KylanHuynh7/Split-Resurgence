@@ -9,8 +9,8 @@ data/processed/*
 !data/processed/pitcher_roster.csv
 !data/processed/pitcher_debuts.csv
 !data/processed/pitcher_season_residuals.parquet
-!data/processed/mixed_effects_coeffs.csv
-!data/processed/bootstrap_npb_coefficient.csv
+!data/processed/mixed_effects_coeffs_*.csv
+!data/processed/bootstrap_npb_coefficient_*.csv
 !data/processed/stuff_baseline.json
 # Keep the giant per-pitch predictions parquet ignored (~54MB, regenerable)
 

@@ -1,0 +1,29 @@
+=== MixedLM regression on CH pitcher-seasons ===
+
+NOTE: predictors dropped (no variation): ['npb_years']
+
+            Mixed Linear Model Regression Results
+==============================================================
+Model:            MixedLM Dependent Variable: model_resistance
+No. Observations: 1166    Method:             REML            
+No. Groups:       520     Scale:              2.6859          
+Min. group size:  1       Log-Likelihood:     -2270.2361      
+Max. group size:  5       Converged:          Yes             
+Mean group size:  2.2                                         
+--------------------------------------------------------------
+                    Coef.  Std.Err.   z    P>|z| [0.025 0.975]
+--------------------------------------------------------------
+Intercept           -3.253    2.195 -1.482 0.138 -7.555  1.048
+mlb_seasons_in      -0.003    0.016 -0.175 0.861 -0.033  0.028
+fastball_velo_mean   0.020    0.021  0.974 0.330 -0.020  0.060
+usage_share          1.460    0.952  1.534 0.125 -0.405  3.325
+is_novelty_year     -0.155    0.174 -0.888 0.375 -0.496  0.187
+Group Var            0.170    0.066                           
+==============================================================
+
+
+=== npb_years was dropped from this model ===
+None of the focal NPB-developed pitchers (Yamamoto, Ohtani,
+Imanaga, Sasaki, Senga) reached the 100-CH threshold
+in any season. The NPB-development hypothesis cannot be tested
+directly on this pitch type using the focal roster.
