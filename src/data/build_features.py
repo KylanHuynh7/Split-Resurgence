@@ -56,8 +56,16 @@ def _select_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df[available].copy()
 
 
-def build_pitch_features(raw: pd.DataFrame) -> pd.DataFrame:
-    """Produce the per-pitch feature table for FS + CH pitches.
+def build_pitch_features(
+    raw: pd.DataFrame,
+    pitch_types: tuple[str, ...] = PITCH_TYPES_OF_INTEREST,
+) -> pd.DataFrame:
+    """Produce the per-pitch feature table for the requested pitch types.
+
+    Default keeps splitters + changeups (the analytical core). Pass a wider
+    set like ("FS","CH","FF","SI","FC") when training the unified
+    physical-features model in step 7 — fastballs themselves get
+    velo_diff_vs_fastball ~= 0 by construction, which is fine semantically.
 
     `raw` is one or more concatenated season pulls from `pull_statcast.pull_season`.
     """
@@ -78,8 +86,8 @@ def build_pitch_features(raw: pd.DataFrame) -> pd.DataFrame:
         ["game_pk", "at_bat_number", "pitch_number", "prev_pitch_type"]
     ]
 
-    # 3. Filter to splitters + changeups.
-    df = df[df["pitch_type"].isin(PITCH_TYPES_OF_INTEREST)].copy()
+    # 3. Filter to requested pitch types.
+    df = df[df["pitch_type"].isin(pitch_types)].copy()
 
     # 4. Drop pitches without a run-value tag — these are unusable as the DV.
     df = df[df["delta_run_exp"].notna()].copy()
