@@ -27,7 +27,6 @@ venv/
 .vscode/
 .idea/
 
-# Reports — keep figures, ignore drafts
-reports/figures/*.png
-!reports/figures/.gitkeep
+# Reports — figures and writeups are part of the project record
+!reports/figures/*.png
 
