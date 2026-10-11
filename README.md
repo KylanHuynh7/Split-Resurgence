@@ -1,76 +1,72 @@
 # Split-Resurgence
 
-Do run-expectancy models systematically undervalue the splitter, and if so, what
-movement and sequencing characteristics does the pitch have that existing
-metrics fail to capture?
+**Do run-value models undervalue the splitter, and does NPB development explain
+which splitters beat them?**
 
-Status: **data layer complete, modeling layer pending.**
+Dave Roberts said in 2025 that "the analytics hasn't caught up to the split."
+This project tests that claim with every Statcast pitch from 2021 to 2025. It
+uses a physics-only XGBoost run-value model, measures how far each pitcher's
+splitter beats or trails that model, and runs a mixed-effects regression with
+a cluster bootstrap on the five-pitcher NPB term. Changeups serve as the control.
 
-## What's here
+**Paper:** [`paper/split_resurgence.pdf`](paper/split_resurgence.pdf) ·
+**Design doc:** [`docs/design.md`](docs/design.md)
+
+## Findings
+
+| | Splitter (FS) | Changeup (CH) |
+|---|---|---|
+| NPB years (RV/100 per year) | +0.10, not significant; bootstrap 95% CI includes 0 | can't be estimated (no NPB pitcher throws 100 CH) |
+| Pitcher-specific variance | **0.35** | 0.14 |
+| Debut-season effect | **−0.87** (p = .03) | −0.13 (n.s.) |
+| Usage share | +3.15 (p = .002) | +2.34 (p < .001) |
+
+- **There is no detectable NPB-development effect.** Five NPB pitchers aren't enough to tell it from zero.
+- **Splitters carry about 2.4× more pitcher-specific signal** than changeups once physics is accounted for.
+- **Debut-season pitchers underperform the model on splitters**, with no matching effect on changeups.
+- **The usage reward is general to off-speed pitches**, not specific to splitters.
+
+## Repository
 
 ```
 src/
-├── data/
-│   ├── pull_statcast.py       # season-level Statcast pulls, parquet cached
-│   ├── pitcher_metadata.py    # hand-curated NPB-vs-domestic roster + fastball baseline
-│   ├── build_features.py      # per-pitch feature table (FS + CH)
-│   └── aggregate.py           # pitcher-season aggregator (run value / 100, etc.)
-├── analysis/
-│   └── splinker_subcluster.py # GMM on FS pitches: traditional vs splinker
-└── run_smoke.py               # end-to-end smoke test (7-day pull)
+├── data/        pull_statcast · pitcher_metadata · build_features · aggregate
+├── analysis/    splinker_subcluster (GMM: traditional splitter vs splinker)
+├── models/      stuff_baseline · residual_analysis · mixed_effects · compare_pitch_types
+├── viz/         residuals_plot · tunnel_plot · case_studies · style
+└── run_smoke.py
+paper/           LaTeX source and compiled PDF
+docs/design.md   pipeline design, data contracts, decisions, known issues
+reports/         regression summaries, figures, original markdown draft
+data/processed/  small derived outputs (committed); raw pulls are regenerated
 ```
 
 ## Reproducing
 
 ```sh
-# install uv if needed: curl -LsSf https://astral.sh/uv/install.sh | sh
-uv sync
-
-# Smoke test (one week of pitches, ~30 seconds)
-uv run python -m src.run_smoke
-
-# Full data pull (slow — pulls 2021-2025 league-wide, several minutes per season)
-uv run python -m src.data.pull_statcast --all
+uv sync --extra modeling
+uv run python -m src.run_smoke                                  # ~30 s sanity check
+uv run python -m src.data.pull_statcast --all                   # ~30 min, network-bound
+uv run python -m src.models.stuff_baseline                      # ~10 min
+uv run python -m src.models.residual_analysis
+uv run python -m src.models.mixed_effects --pitch-type FS --bootstrap 2000   # ~30 min
+uv run python -m src.models.mixed_effects --pitch-type CH
+uv run python -m src.models.compare_pitch_types
+uv run python -m src.viz.residuals_plot
+uv run python -m src.viz.tunnel_plot
+uv run python -m src.viz.case_studies
+tectonic paper/split_resurgence.tex                             # rebuild the PDF
 ```
 
-Cached pulls land in `data/raw/statcast_{season}.parquet` and are gitignored
-(regenerable from the pybaseball source). The hand-curated roster lands in
-`data/processed/pitcher_roster.csv` and is gitignored too — re-run the smoke
-test or call `resolve_roster()` to regenerate it.
+The repo commits every small output the paper depends on: the trained model,
+residuals, coefficients, bootstrap draws and figures. A fresh clone can rerun
+the regressions and rebuild the paper without the ~480 MB raw pull. See
+[`docs/design.md` §4](docs/design.md#4-artifacts-and-whats-committed) for what
+is regenerated and how.
 
-## Project plan
+## Data notes
 
-The full research plan, mentor revisions, and methodological commitments live
-in [`docs/plan.md`](docs/plan.md) (move from chat-attached spec when ready).
-
-The plan calls for three modeling steps next:
-
-> 7. Fit physical-features baseline model (XGBoost predicting per-pitch run value)
-> 8. Compute per-pitcher-season residuals = "model resistance" score
-> 9. Mixed-effects regression of residuals on NPB years, MLB experience, etc.
-
-The choice of model family for step 7 (XGBoost vs LightGBM vs something
-simpler) and the exact specification for step 9 are deferred to the modeling
-phase.
-
-## What the data layer guarantees
-
-- Pitch-level FS and CH dataset for 2021-2025, with run value (`delta_run_exp`)
-  attached to every pitch.
-- Velocity and IVB differential features computed against each pitcher-season's
-  primary fastball (FF/SI/FC, whichever was thrown most).
-- A pitcher-season grain table with `run_value_per_100` (sign-flipped so
-  higher = better pitch), whiff rate, and usage share.
-- Sub-clustering of the FS tag into "traditional" and "splinker" classes, so
-  Skenes-style 94 mph splinkers don't pollute traditional-splitter analyses.
-
-## Honest limitations of the data layer
-
-- Statcast `pfx_z` is in feet, not the inches typically used in pitch-grading
-  literature. Multiply by 12 if you want IVB in inches.
-- The FS tag changed for Skenes mid-2025; raw data reflects whatever Statcast
-  decided that day. The sub-cluster is the right way to handle this, not the
-  pitch_type column directly.
-- `delta_run_exp` is base-out-state aware but doesn't fully account for
-  pitcher/batter quality. The residual analysis (downstream) is what
-  separates pitch-level effects from context.
+- Statcast `pfx_z` is in feet. Multiply by 12 for inches.
+- The FS tag mixes traditional splitters with splinkers such as Skenes' pitch.
+  `splinker_subcluster` separates them, but the v1 regression pools them.
+- `delta_run_exp` accounts for base-out state but not batter quality.

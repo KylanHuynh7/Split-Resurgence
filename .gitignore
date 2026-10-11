@@ -12,6 +12,7 @@ data/processed/*
 !data/processed/mixed_effects_coeffs_*.csv
 !data/processed/bootstrap_npb_coefficient_*.csv
 !data/processed/stuff_baseline.json
+!data/processed/pitcher_season_totals.csv
 # Keep the giant per-pitch predictions parquet ignored (~54MB, regenerable)
 
 # Python
@@ -30,3 +31,8 @@ venv/
 # Reports — figures and writeups are part of the project record
 !reports/figures/*.png
 
+
+# LaTeX build byproducts
+paper/*.aux
+paper/*.log
+paper/*.out

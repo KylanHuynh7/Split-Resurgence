@@ -6,19 +6,19 @@ NOTE: predictors dropped (no variation): ['npb_years']
 ==============================================================
 Model:            MixedLM Dependent Variable: model_resistance
 No. Observations: 1166    Method:             REML            
-No. Groups:       520     Scale:              2.6859          
-Min. group size:  1       Log-Likelihood:     -2270.2361      
+No. Groups:       520     Scale:              2.6631          
+Min. group size:  1       Log-Likelihood:     -2261.0386      
 Max. group size:  5       Converged:          Yes             
 Mean group size:  2.2                                         
 --------------------------------------------------------------
                     Coef.  Std.Err.   z    P>|z| [0.025 0.975]
 --------------------------------------------------------------
-Intercept           -3.253    2.195 -1.482 0.138 -7.555  1.048
-mlb_seasons_in      -0.003    0.016 -0.175 0.861 -0.033  0.028
-fastball_velo_mean   0.020    0.021  0.974 0.330 -0.020  0.060
-usage_share          1.460    0.952  1.534 0.125 -0.405  3.325
-is_novelty_year     -0.155    0.174 -0.888 0.375 -0.496  0.187
-Group Var            0.170    0.066                           
+Intercept           -3.174    1.935 -1.640 0.101 -6.968  0.619
+mlb_seasons_in       0.002    0.015  0.139 0.890 -0.028  0.032
+fastball_velo_mean   0.029    0.020  1.445 0.148 -0.010  0.069
+usage_share          2.340    0.497  4.706 0.000  1.365  3.315
+is_novelty_year     -0.127    0.173 -0.732 0.464 -0.466  0.212
+Group Var            0.142    0.064                           
 ==============================================================
 
 

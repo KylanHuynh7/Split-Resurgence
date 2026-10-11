@@ -5,12 +5,12 @@ Sample sizes (pitcher-seasons with >= 100 pitches):
   CH: 1166 pitcher-seasons, 520 pitchers, 3 focal-roster rows, 0 NPB-flagged rows
 
 Fixed-effects coefficients side-by-side:
-  Intercept              FS: -4.612 (p=0.358)        CH: -3.253 (p=0.138)
-  npb_years              FS: +0.101 (p=0.324)        CH: DROPPED
-  mlb_seasons_in         FS: -0.045 (p=0.172)        CH: -0.003 (p=0.861)
-  fastball_velo_mean     FS: +0.023 (p=0.650)        CH: +0.020 (p=0.330)
-  usage_share            FS: +2.797 (p=0.043)        CH: +1.460 (p=0.125)
-  is_novelty_year        FS: -0.657 (p=0.093)        CH: -0.155 (p=0.375)
+  Intercept              FS: -5.371 (p=0.274)        CH: -3.174 (p=0.101)
+  npb_years              FS: +0.101 (p=0.314)        CH: DROPPED
+  mlb_seasons_in         FS: -0.053 (p=0.101)        CH: +0.002 (p=0.890)
+  fastball_velo_mean     FS: +0.053 (p=0.295)        CH: +0.029 (p=0.148)
+  usage_share            FS: +3.148 (p=0.002)        CH: +2.340 (p=0.000)
+  is_novelty_year        FS: -0.865 (p=0.027)        CH: -0.127 (p=0.464)
 
 --- Reading the comparison ---
   npb_years is DROPPED on CH because none of the 5 focal NPB-developed

@@ -1,3 +1,8 @@
+> **Superseded.** This is the original v1 markdown draft. The formal paper is
+> [`paper/split_resurgence.pdf`](../paper/split_resurgence.pdf). The `usage_share` numbers below
+> use an incorrect denominator (FS+CH instead of all pitches); see
+> [`docs/design.md` §6.1](../docs/design.md) for the corrected values.
+
 # The Splitter Analytics Gap
 
 *Inspired by Dave Roberts' 2025 comments to Jeff Passan. Draft v1 — feedback welcome.*

@@ -29,11 +29,14 @@ import numpy as np
 import pandas as pd
 import statsmodels.formula.api as smf
 
+from src.data.pull_statcast import SEASON_WINDOWS, _cache_path
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PROCESSED_DIR = REPO_ROOT / "data" / "processed"
 REPORTS_DIR = REPO_ROOT / "reports"
 
 RESIDUALS_PATH = PROCESSED_DIR / "pitcher_season_residuals.parquet"
+TOTALS_PATH = PROCESSED_DIR / "pitcher_season_totals.csv"
 
 
 def coeffs_path(pitch_type: str) -> Path:
@@ -61,6 +64,26 @@ def build_formula(df: pd.DataFrame) -> tuple[str, list[str]]:
     return "model_resistance ~ " + " + ".join(used), used
 
 
+def load_pitcher_season_totals() -> pd.DataFrame:
+    """Total tracked pitches (all types) per pitcher-season.
+
+    Computed once from the raw season caches and persisted as a small CSV so
+    later runs (and fresh clones without the ~500MB raw pulls) don't need them.
+    """
+    if TOTALS_PATH.exists():
+        return pd.read_csv(TOTALS_PATH)
+    parts = []
+    for season in sorted(SEASON_WINDOWS):
+        raw = pd.read_parquet(_cache_path(str(season)), columns=["pitcher", "game_year"])
+        parts.append(raw.groupby(["pitcher", "game_year"]).size())
+    totals = pd.concat(parts).rename("total_pitches").reset_index()
+    totals["pitcher"] = totals["pitcher"].astype(int)
+    totals["game_year"] = totals["game_year"].astype(int)
+    PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+    totals.to_csv(TOTALS_PATH, index=False)
+    return totals
+
+
 def load_pitch_table(pitch_type: str) -> pd.DataFrame:
     """Rows for `pitch_type` only, drop rows missing any covariate the formula needs."""
     df = pd.read_parquet(RESIDUALS_PATH)
@@ -70,27 +93,15 @@ def load_pitch_table(pitch_type: str) -> pd.DataFrame:
         "fastball_velo_mean", "is_novelty_year",
     ]
     df = df.dropna(subset=needed)
-    # usage_share isn't in the residuals table — it lives in aggregate.py's
-    # output. Recompute here from n_pitches per pitcher-season.
-    season_totals = (
-        df.groupby(["pitcher", "game_year"])["n_pitches"].sum().reset_index(
-            name="total_fs_only"
-        )
-    )
-    # We don't have total pitches in this file, so use a proxy: FS share among
-    # the pitcher's tracked pitch types in our data. For non-focal pitchers
-    # this is approximate, but consistent.
-    df = df.merge(season_totals, on=["pitcher", "game_year"])
-    df["usage_share"] = df["n_pitches"] / df["total_fs_only"]  # = 1 here, see below
-    # Better: pull total from the predictions parquet.
-    pred = pd.read_parquet(PROCESSED_DIR / "pitches_with_predictions.parquet")
-    pitcher_season_totals = (
-        pred.groupby(["pitcher", "game_year"]).size().reset_index(name="total_fs_ch")
-    )
-    df = df.drop(columns=["usage_share", "total_fs_only"]).merge(
-        pitcher_season_totals, on=["pitcher", "game_year"]
-    )
-    df["usage_share"] = df["n_pitches"] / df["total_fs_ch"]
+    # usage_share = this pitch type's share of ALL pitches the pitcher threw
+    # that season (same definition as aggregate.py). An earlier version used
+    # FS+CH pitches as the denominator, which made usage_share == 1 for ~90%
+    # of FS rows and turned it into a "doesn't also throw a changeup" flag.
+    totals = load_pitcher_season_totals()
+    df["pitcher"] = df["pitcher"].astype(int)
+    df["game_year"] = df["game_year"].astype(int)
+    df = df.merge(totals, on=["pitcher", "game_year"], how="left")
+    df["usage_share"] = df["n_pitches"] / df["total_pitches"]
 
     # MixedLM needs numeric ints/floats — coerce nullable Int64 etc.
     df["npb_years"] = df["npb_years"].astype(float)
